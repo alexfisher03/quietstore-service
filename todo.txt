@@ -1,0 +1,5 @@
+- write services
+- write middleware
+- write config
+
+- then setup database
