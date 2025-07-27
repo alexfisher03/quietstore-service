@@ -78,7 +78,7 @@ type FileCreateRequest struct {
 	ContentType string `json:"content_type" validate:"required"`
 }
 
-// represents file data returned to client side retards
+// represents file data returned to client side
 type FileResponse struct {
 	ID          string    `json:"id"`
 	Filename    string    `json:"filename"`

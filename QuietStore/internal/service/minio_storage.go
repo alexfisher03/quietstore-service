@@ -33,7 +33,7 @@ func NewMinIOStorageService(config MinIOConfig) (*MinIOStorageService, error) {
 		Secure: config.UseSSL,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Failed during MinIO client initialization: %w", err)
+		return nil, fmt.Errorf("failed during minio client initialization: %w", err)
 	}
 
 	service := &MinIOStorageService{
@@ -44,18 +44,18 @@ func NewMinIOStorageService(config MinIOConfig) (*MinIOStorageService, error) {
 
 	ctx := context.Background()
 	if err := service.ensureBucket(ctx); err != nil {
-		return nil, fmt.Errorf("Failed to ensure buncket: %w", err)
+		return nil, fmt.Errorf("failed to ensure bucket: %w", err)
 	}
 
 	if err := service.validateStorageConfig(); err != nil {
-		return nil, fmt.Errorf("Failed to validate storage config: %w", err)
+		return nil, fmt.Errorf("failed to validate storage config: %w", err)
 	}
 	return service, nil
 }
 
 func (s *MinIOStorageService) Store(ctx context.Context, file *models.File, content io.Reader) error {
 	if err := file.Validate(); err != nil {
-		return fmt.Errorf("File validation failed you fucker: %w", err)
+		return fmt.Errorf("file validation failed: %w", err)
 	}
 
 	file.GenerateStoragePath()
@@ -72,14 +72,14 @@ func (s *MinIOStorageService) Store(ctx context.Context, file *models.File, cont
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchBucket" {
 			if createErr := s.ensureBucket(ctx); createErr != nil {
-				return fmt.Errorf("Failed to create bucket: %w", createErr)
+				return fmt.Errorf("failed to create bucket: %w", createErr)
 			}
 			info, err = s.client.PutObject(ctx, s.bucketName, file.StoragePath, content, file.Size, opts)
 			if err != nil {
-				return fmt.Errorf("upload retry failed : %w", err)
+				return fmt.Errorf("upload retry failed: %w", err)
 			}
 		} else {
-			return fmt.Errorf("Failed to upload file: %w", err)
+			return fmt.Errorf("failed to upload file: %w", err)
 		}
 	}
 
@@ -96,7 +96,7 @@ func (s *MinIOStorageService) Retrieve(ctx context.Context, file *models.File) (
 
 	object, err := s.client.GetObject(ctx, s.bucketName, file.StoragePath, minio.GetObjectOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to retrieve file: %w", err)
+		return nil, fmt.Errorf("failed to retrieve file: %w", err)
 	}
 
 	_, err = object.Stat()
@@ -106,7 +106,7 @@ func (s *MinIOStorageService) Retrieve(ctx context.Context, file *models.File) (
 		if errResp.Code == "NoSuchKey" {
 			return nil, ErrFileNotFound
 		}
-		return nil, fmt.Errorf("Failed to stat object: %w", err)
+		return nil, fmt.Errorf("failed to stat object: %w", err)
 	}
 
 	return object, nil
@@ -122,19 +122,19 @@ func (s *MinIOStorageService) Delete(ctx context.Context, file *models.File) err
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			return nil
 		}
-		return fmt.Errorf("Failed to delete file: %w", err)
+		return fmt.Errorf("failed to delete file: %w", err)
 	}
 	return nil
 }
 
 func (s *MinIOStorageService) GetPresignedURL(ctx context.Context, file *models.File, expiry time.Duration) (string, error) {
 	if file.StoragePath == "" {
-		return "", errors.New("file storage path is empty during presigned URL generation")
+		return "", errors.New("file storage path is empty during presigned url generation")
 	}
 
 	url, err := s.client.PresignedGetObject(ctx, s.bucketName, file.StoragePath, expiry, nil)
 	if err != nil {
-		return "", fmt.Errorf("Failed to generate presigned URL: %w", err)
+		return "", fmt.Errorf("failed to generate presigned url: %w", err)
 	}
 	return url.String(), nil
 }
@@ -142,13 +142,13 @@ func (s *MinIOStorageService) GetPresignedURL(ctx context.Context, file *models.
 func (s *MinIOStorageService) ensureBucket(ctx context.Context) error {
 	exists, err := s.client.BucketExists(ctx, s.bucketName)
 	if err != nil {
-		return fmt.Errorf("Failed to check if bucket exists: %w", err)
+		return fmt.Errorf("failed to check if bucket exists: %w", err)
 	}
 
 	if !exists {
 		err = s.client.MakeBucket(ctx, s.bucketName, minio.MakeBucketOptions{Region: s.region})
 		if err != nil {
-			return fmt.Errorf("Failed to create bucket: %w", err)
+			return fmt.Errorf("failed to create bucket: %w", err)
 		}
 	}
 
@@ -160,7 +160,7 @@ func (c *MinIOStorageService) validateStorageConfig() error {
 	defer cancel()
 	_, err := c.client.ListBuckets(ctx)
 	if err != nil {
-		return fmt.Errorf("MinIO connection failed: %w", err)
+		return fmt.Errorf("minio connection failed: %w", err)
 	}
 	return nil
 }
