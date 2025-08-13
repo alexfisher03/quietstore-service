@@ -1,5 +1,7 @@
-- write services
+- fix failed to laod configuration error
+- implement health handler
 - write middleware
-- write config
 
-- then setup database
+- setup kubernetes
+- setup docker
+- setup database
