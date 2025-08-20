@@ -10,13 +10,31 @@ import (
 )
 
 type File struct {
-	ID          string    `json:"id" db:"id"`
-	Filename    string    `json:"filename" db:"filename"`
-	Size        int64     `json:"size" db:"size"`
-	ContentType string    `json:"content_type" db:"content_type"`
-	StoragePath string    `json:"-" db:"storage_path"`
-	UserID      string    `json:"user_id" db:"user_id"`
-	UploadedAt  time.Time `json:"uploaded_at" db:"uploaded_at"`
+	ID          string    `json:"id"`
+	Filename    string    `json:"filename"`
+	Size        int64     `json:"size"`
+	ContentType string    `json:"content_type"`
+	StoragePath string    `json:"-"`
+	UserID      string    `json:"user_id"`
+	UploadedAt  time.Time `json:"uploaded_at"`
+}
+
+func generateID() string {
+	return "UserFile_" + uuid.New().String()
+}
+
+func sanitizeFilename(filename string) string {
+	filename = filepath.Base(filename)
+
+	filename = strings.ReplaceAll(filename, " ", "_")
+
+	dangerous := []string{"..", "~", "`", "|", ";", "&", "$", "*"}
+
+	for _, char := range dangerous {
+		filename = strings.ReplaceAll(filename, char, "des")
+	}
+
+	return filename
 }
 
 func NewFile(filename string, size int64, contentType, userID string) *File {
@@ -97,24 +115,6 @@ func (f *File) ToResponse() *FileResponse {
 		ContentType: f.ContentType,
 		UploadedAt:  f.UploadedAt,
 	}
-}
-
-func generateID() string {
-	return "UserFile_" + uuid.New().String()
-}
-
-func sanitizeFilename(filename string) string {
-	filename = filepath.Base(filename)
-
-	filename = strings.ReplaceAll(filename, " ", "_")
-
-	dangerous := []string{"..", "~", "`", "|", ";", "&", "$", "*"}
-
-	for _, char := range dangerous {
-		filename = strings.ReplaceAll(filename, char, "DES!")
-	}
-
-	return filename
 }
 
 func isAllowedContentType(contentType string) bool {

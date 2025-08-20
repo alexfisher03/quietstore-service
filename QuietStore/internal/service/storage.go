@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"time"
 
 	"github.com/alexfisher03/quietstore-service/QuietStore/internal/models"
 )
@@ -12,8 +11,8 @@ import (
 type StorageService interface {
 	Store(ctx context.Context, file *models.File, content io.Reader) error
 	Retrieve(ctx context.Context, file *models.File) (io.ReadCloser, error)
-	Delete(ctx context.Context, file *models.File) error
-	GetPresignedURL(ctx context.Context, file *models.File, expiry time.Duration) (string, error)
+	ListUserFiles(ctx context.Context, userID string) ([]*models.File, error)
+	DeleteFile(ctx context.Context, file *models.File) error
 }
 
 var (

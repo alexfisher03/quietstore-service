@@ -1,7 +1,0 @@
-- fix failed to laod configuration error
-- implement health handler
-- write middleware
-
-- setup kubernetes
-- setup docker
-- setup database

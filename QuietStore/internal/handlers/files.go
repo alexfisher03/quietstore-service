@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"fmt"
+
 	"github.com/alexfisher03/quietstore-service/QuietStore/internal/models"
 	"github.com/alexfisher03/quietstore-service/QuietStore/internal/service"
 	"github.com/gofiber/fiber/v2"
@@ -14,6 +16,15 @@ func NewFileHandler(storage service.StorageService) *FileHandler {
 	return &FileHandler{
 		storage: storage,
 	}
+}
+
+func FindFileByID(files []*models.File, fileID string) *models.File {
+	for _, file := range files {
+		if file.ID == fileID {
+			return file
+		}
+	}
+	return nil
 }
 
 func (h *FileHandler) UploadFileHandler(c *fiber.Ctx) error {
@@ -33,6 +44,7 @@ func (h *FileHandler) UploadFileHandler(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 	}
 	newFile.GenerateStoragePath()
+	print(newFile.StoragePath)
 
 	if err := h.storage.Store(c.Context(), newFile, file); err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "upload file failed: " + err.Error()})
@@ -50,45 +62,74 @@ func (h *FileHandler) UploadFileHandler(c *fiber.Ctx) error {
 
 }
 
-func (h *FileHandler) GetFileByIdHandler(c *fiber.Ctx) error {
-	fileID := c.Params("id")
-	if fileID == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "File ID is required"})
+func (h *FileHandler) GetUserFilesHandler(c *fiber.Ctx) error {
+	userID := c.Params("userID")
+	if userID == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "User ID is required but empty"})
 	}
 
-	// mock file creation, fetch from DB later
-	file := models.NewFile("aperature01.pdf", 6000, "application/pdf", "user123")
-	reader, err := h.storage.Retrieve(c.Context(), file)
+	files, err := h.storage.ListUserFiles(c.Context(), userID)
 	if err != nil {
-		if err == service.ErrFileNotFound {
-			return c.Status(404).JSON(fiber.Map{"error": "File not found"})
-		}
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to retrieve file"})
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to list user files during storage lookup"})
 	}
-	defer reader.Close()
-	if file == nil {
-		return c.Status(404).JSON(fiber.Map{"error": "File not found"})
+
+	var responses []models.FileResponse
+	for _, file := range files {
+		responses = append(responses, *file.ToResponse())
 	}
-	return c.Status(200).JSON(file.ToResponse())
+
+	return c.JSON(responses)
 }
 
-func (h *FileHandler) GetAllFilesForUserHandler(c *fiber.Ctx) error {
-	files := []fiber.Map{
-		{
-			"id":          "file1",
-			"filename":    "proj.cpp",
-			"size":        2048,
-			"uploaded_at": "2023-10-01T12:00:00Z",
-		},
-		{
-			"id":          "file2",
-			"filename":    "report.pdf",
-			"size":        10240,
-			"uploaded_at": "2023-10-02T14:30:00Z",
-		},
+func (h *FileHandler) GetUserFileByIDHandler(c *fiber.Ctx) error {
+	userID := c.Params("userID")
+	fileID := c.Params("fileID")
+
+	if userID == "" || fileID == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "User ID or File ID are missing"})
 	}
-	return c.JSON(fiber.Map{
-		"files": files,
-		"count": len(files),
-	})
+
+	files, err := h.storage.ListUserFiles(c.Context(), userID)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to list user files"})
+	}
+
+	var match *models.File
+	match = FindFileByID(files, fileID)
+	if match == nil {
+		return c.Status(404).JSON(fiber.Map{"error": "File not found"})
+	}
+
+	reader, err := h.storage.Retrieve(c.Context(), match)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to retrieve file"})
+	}
+
+	c.Set("Content-Type", match.ContentType)
+	c.Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, match.Filename))
+	return c.SendStream(reader)
+}
+
+func (h *FileHandler) DeleteUserFileByIDHandler(c *fiber.Ctx) error {
+	userID := c.Params("userID")
+	fileID := c.Params("fileID")
+
+	if userID == "" || fileID == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "User ID or File ID are missing"})
+	}
+
+	files, err := h.storage.ListUserFiles(c.Context(), userID)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to list user files"})
+	}
+
+	var targetFile *models.File
+	if targetFile = FindFileByID(files, fileID); targetFile == nil {
+		return c.Status(404).JSON(fiber.Map{"error": "File not found"})
+	}
+
+	if err := h.storage.DeleteFile(c.Context(), targetFile); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete file"})
+	}
+	return c.Status(200).JSON(fiber.Map{"message": "File deleted successfully"})
 }

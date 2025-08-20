@@ -14,18 +14,6 @@ func Load() (*Config, error) {
 	if err := loadStruct(&cfg.Server, ""); err != nil {
 		return nil, fmt.Errorf("failed to load server config: %v", err)
 	}
-	if err := loadStruct(&cfg.Storage, ""); err != nil {
-		return nil, fmt.Errorf("loading storage config: %w", err)
-	}
-
-	if err := loadStruct(&cfg.Database, ""); err != nil {
-		return nil, fmt.Errorf("loading database config: %w", err)
-	}
-
-	if err := loadStruct(&cfg.Auth, ""); err != nil {
-		return nil, fmt.Errorf("loading auth config: %w", err)
-	}
-
 	if err := loadStruct(&cfg.App, ""); err != nil {
 		return nil, fmt.Errorf("loading app config: %w", err)
 	}
