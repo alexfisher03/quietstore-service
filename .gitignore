@@ -1,0 +1,40 @@
+# Go
+/bin/
+/dist/
+/build/
+/*.exe
+*.test
+*.out
+
+# Modules & tooling
+vendor/
+.coverage
+*.prof
+
+# Editor/OS junk
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Env / secrets
+.env
+.env.*            # e.g., .env.local, .env.dev
+*.key
+*.pem
+*.pfx
+*.p12
+*.crt
+*.der
+
+# Certificates & local CA (keep out of git)
+certs/
+**/private.key
+**/public.crt
+**/ca.pem
+
+# Runtime data (should be docker volumes, not files in repo)
+pg_data/
+minio_data/
+data/
+tmp/

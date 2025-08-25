@@ -1,29 +1,95 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"os"
+	"time"
 
 	"github.com/alexfisher03/quietstore-service/QuietStore/internal/config"
+	"github.com/alexfisher03/quietstore-service/QuietStore/internal/db"
+	"github.com/alexfisher03/quietstore-service/QuietStore/internal/repo"
 	"github.com/alexfisher03/quietstore-service/QuietStore/internal/service"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/joho/godotenv"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	v1 "github.com/alexfisher03/quietstore-service/QuietStore/api/v1"
 )
 
-func main() {
-	if err := godotenv.Load(".env"); err != nil {
-		log.Println("No .env file loaded (continuing anyway)")
+func mustConnectDB(dsn string) *pgxpool.Pool {
+	deadline := time.Now().Add(30 * time.Second)
+	var pool *pgxpool.Pool
+	var err error
+	for {
+		pool, err = db.Connect(context.Background(), dsn)
+		if err == nil {
+			return pool
+		}
+		if time.Now().After(deadline) {
+			log.Fatalf("DB connect failed (timeout): %v", err)
+		}
+		log.Printf("DB not ready yet: %v; retrying...", err)
+		time.Sleep(2 * time.Second)
 	}
+}
+
+func main() {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	storage := service.NewLocalStorageService(cfg.Storage.BasePath)
+	dsn := os.Getenv("DB_DSN")
+	pool := mustConnectDB(dsn)
+	defer pool.Close()
+	if err := db.Migrate(context.Background(), pool); err != nil {
+		log.Fatalf("DB migrate failed: %v", err)
+	}
+
+	usersRepo := repo.NewUsersPGX(pool)
+	filesRepo := repo.NewFilesPGX(pool)
+	refreshRepo := repo.NewRefreshPGX(pool)
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+
+		const revokedRetention = time.Minute
+
+		for range ticker.C {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			now := time.Now()
+
+			deleted, err := refreshRepo.Purge(ctx, now, now.Add(-revokedRetention))
+			cancel()
+			if err != nil {
+				log.Printf("[refresh-purge] delete failed: %v", err)
+				continue
+			}
+			if deleted > 0 {
+				log.Printf("[refresh-purge] removed %d rows", deleted)
+			}
+		}
+	}()
+
+	// minio
+	endpoint := os.Getenv("MINIO_ENDPOINT")
+	ak := os.Getenv("MINIO_ACCESS_KEY")
+	sk := os.Getenv("MINIO_SECRET_KEY")
+	bucket := os.Getenv("MINIO_BUCKET")
+	useSSL := os.Getenv("MINIO_USE_SSL") == "true"
+
+	s3c := newMinIOS3Client(endpoint, ak, sk, useSSL)
+	ensureBucket(context.Background(), s3c, bucket)
+	storage := service.NewMinIOStorageService(s3c, bucket, filesRepo)
 
 	app := fiber.New(fiber.Config{
 		ServerHeader: "QuietStore/1.0",
@@ -35,10 +101,35 @@ func main() {
 	app.Use(logger.New())
 	app.Use(recover.New())
 
-	v1.RegisterRoutes(app, storage)
+	v1.RegisterRoutes(app, storage, usersRepo, refreshRepo)
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+
+		const revokedRetention = time.Minute
+
+		for t := range ticker.C {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			now := t.UTC()
+
+			var aboutToExpire, aboutToDrop int64
+			_ = pool.QueryRow(ctx, `SELECT count(*) FROM refresh_tokens WHERE expires_at < $1`, now).Scan(&aboutToExpire)
+			_ = pool.QueryRow(ctx, `SELECT count(*) FROM refresh_tokens WHERE revoked_at IS NOT NULL AND revoked_at < $1`, now.Add(-revokedRetention)).Scan(&aboutToDrop)
+
+			deleted, err := refreshRepo.Purge(ctx, now, now.Add(-revokedRetention))
+			cancel()
+
+			if err != nil {
+				log.Printf("[refresh-purge] ran at %s UTC, would-expire=%d, would-revoke=%d, ERROR: %v",
+					now.Format(time.RFC3339), aboutToExpire, aboutToDrop, err)
+				continue
+			}
+			log.Printf("[refresh-purge] ran at %s UTC, would-expire=%d, would-revoke=%d, deleted=%d",
+				now.Format(time.RFC3339), aboutToExpire, aboutToDrop, deleted)
+		}
+	}()
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	log.Printf("[BOOT] Starting server at %s", addr)
-	log.Printf("[BOOT] ENVIRONMENT: %s", cfg.App.Environment)
 	log.Fatal(app.Listen(addr))
 }

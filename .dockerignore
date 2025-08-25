@@ -1,0 +1,9 @@
+.git
+.gitignore
+.DS_Store
+.vscode
+.idea
+certs
+pg_data
+minio_data
+.env

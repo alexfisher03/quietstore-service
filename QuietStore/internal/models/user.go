@@ -3,6 +3,8 @@ package models
 import (
 	"errors"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type User struct {
@@ -17,8 +19,12 @@ func (u *User) Validate() error {
 	if u.Username == "" {
 		return errors.New("username cannot be empty")
 	}
-	if u.Email == "" {
-		return errors.New("email cannot be empty")
+	if u.Password == "" {
+		return errors.New("password cannot be empty")
 	}
 	return nil
+}
+
+func GenerateUserID() string {
+	return "User_" + uuid.New().String()
 }

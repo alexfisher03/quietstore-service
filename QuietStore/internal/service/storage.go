@@ -2,21 +2,14 @@ package service
 
 import (
 	"context"
-	"errors"
 	"io"
 
 	"github.com/alexfisher03/quietstore-service/QuietStore/internal/models"
 )
 
 type StorageService interface {
-	Store(ctx context.Context, file *models.File, content io.Reader) error
-	Retrieve(ctx context.Context, file *models.File) (io.ReadCloser, error)
-	ListUserFiles(ctx context.Context, userID string) ([]*models.File, error)
-	DeleteFile(ctx context.Context, file *models.File) error
+	SaveFile(ctx context.Context, userID, originalName, contentType string, size int64, r io.Reader) (*models.File, error)
+	OpenFile(ctx context.Context, userID, fileID string) (*models.File, io.ReadCloser, error)
+	ListFiles(ctx context.Context, userID string, limit, offset int) ([]*models.File, error)
+	DeleteFile(ctx context.Context, userID, fileID string) error
 }
-
-var (
-	ErrFileNotFound = errors.New("file not found")
-	ErrStorageFull  = errors.New("storage is full")
-	ErrInvalidFile  = errors.New("invalid file")
-)
