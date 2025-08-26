@@ -82,7 +82,6 @@ func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to sign token")
 	}
 
-	// Refresh (opaque) — store hash in DB
 	refreshRaw := uuid.NewString()
 	refreshHash := sha256.Sum256([]byte(refreshRaw))
 	if err := h.refresh.Insert(c.Context(), u.ID, hex.EncodeToString(refreshHash[:]), now.Add(h.refreshTTL)); err != nil {
@@ -114,10 +113,8 @@ func (h *AuthHandler) RefreshHandler(c *fiber.Ctx) error {
 	if err != nil || !valid {
 		return fiber.NewError(fiber.StatusUnauthorized, "invalid or expired refresh token")
 	}
-	// single-use rotation (best practice)
 	_ = h.refresh.Revoke(c.Context(), in.UserID, hex.EncodeToString(hash[:]))
 
-	// issue new access & new refresh
 	accessExp := now.Add(h.accessTTL)
 	claims := jwt.MapClaims{
 		"sub":     in.UserID,
@@ -148,7 +145,6 @@ func (h *AuthHandler) RefreshHandler(c *fiber.Ctx) error {
 	})
 }
 
-// JWT middleware
 func RequireAuth(secret string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		auth := c.Get("Authorization")
@@ -177,4 +173,25 @@ func RequireAuth(secret string) fiber.Handler {
 		c.Locals("userID", userID)
 		return c.Next()
 	}
+}
+
+func (h *AuthHandler) LogoutHandler(c *fiber.Ctx) error {
+	userID, ok := c.Locals("userID").(string)
+	if !ok || userID == "" {
+		return fiber.NewError(fiber.StatusUnauthorized, "missing user id context")
+	}
+
+	var input struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := c.BodyParser(&input); err != nil || input.RefreshToken == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid logout payload")
+	}
+
+	hash := sha256.Sum256([]byte(input.RefreshToken))
+	if err := h.refresh.Revoke(c.Context(), userID, hex.EncodeToString(hash[:])); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to revoke refresh token")
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
 }

@@ -19,9 +19,15 @@ type ServerConfig struct {
 }
 
 type AppConfig struct {
-	Environment string `env:"APP_ENVIRONMENT" default:"development"` // dev, test, prod
-	LogLevel    string `env:"APP_LOG_LEVEL" default:"info"`
-	MaxFileSize int64
+	Environment         string `env:"APP_ENVIRONMENT" default:"development"`
+	LogLevel            string `env:"APP_LOG_LEVEL" default:"info"`
+	MaxFileSize         int64
+	RateLimitAuthMax    int           `env:"RATE_LIMIT_AUTH_MAX" default:"5"`
+	RateLimitAuthExpire time.Duration `env:"RATE_LIMIT_AUTH_EXPIRATION" default:"60"`
+	RateLimitUserMax    int           `env:"RATE_LIMIT_USER_MAX" default:"3"`
+	RateLimitUserExpire time.Duration `env:"RATE_LIMIT_USER_EXPIRATION" default:"60"`
+	RateLimitFileMax    int           `env:"RATE_LIMIT_FILE_MAX" default:"15"`
+	RateLimitFileExpire time.Duration `env:"RATE_LIMIT_FILE_EXPIRATION" default:"60"`
 }
 
 type StorageConfig struct {

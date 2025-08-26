@@ -58,28 +58,6 @@ func main() {
 	filesRepo := repo.NewFilesPGX(pool)
 	refreshRepo := repo.NewRefreshPGX(pool)
 
-	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
-		defer ticker.Stop()
-
-		const revokedRetention = time.Minute
-
-		for range ticker.C {
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			now := time.Now()
-
-			deleted, err := refreshRepo.Purge(ctx, now, now.Add(-revokedRetention))
-			cancel()
-			if err != nil {
-				log.Printf("[refresh-purge] delete failed: %v", err)
-				continue
-			}
-			if deleted > 0 {
-				log.Printf("[refresh-purge] removed %d rows", deleted)
-			}
-		}
-	}()
-
 	// minio
 	endpoint := os.Getenv("MINIO_ENDPOINT")
 	ak := os.Getenv("MINIO_ACCESS_KEY")
@@ -101,13 +79,13 @@ func main() {
 	app.Use(logger.New())
 	app.Use(recover.New())
 
-	v1.RegisterRoutes(app, storage, usersRepo, refreshRepo)
+	v1.RegisterRoutes(app, cfg.App, storage, usersRepo, refreshRepo)
 
 	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
+		ticker := time.NewTicker(6 * time.Hour)
 		defer ticker.Stop()
 
-		const revokedRetention = time.Minute
+		const revokedRetention = 30 * time.Hour
 
 		for t := range ticker.C {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
