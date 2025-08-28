@@ -137,3 +137,16 @@ func (m *MinIOStorageService) DeleteFile(ctx context.Context, userID, fileID str
 	}
 	return m.files.Delete(ctx, fileID, userID)
 }
+
+func (m *MinIOStorageService) SearchFiles(
+	ctx context.Context,
+	userID, q, contentType string,
+	minSize, maxSize int64,
+	limit, offset int,
+) ([]*models.File, error) {
+	return m.files.ListByFilters(ctx, userID, q, contentType, minSize, maxSize, limit, offset)
+}
+
+func (m *MinIOStorageService) RenameFile(ctx context.Context, userID, fileID, newName string) error {
+	return m.files.UpdateOriginalName(ctx, fileID, userID, newName)
+}

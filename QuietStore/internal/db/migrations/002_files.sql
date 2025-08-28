@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS files (
   content_type   TEXT,
   sha256         TEXT,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at     TIMESTAMPTZ
+  deleted_at     TIMESTAMPTZ DEFAULT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_files_owner_created

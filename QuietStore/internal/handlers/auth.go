@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexfisher03/quietstore-service/QuietStore/internal/models"
 	"github.com/alexfisher03/quietstore-service/QuietStore/internal/repo"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
@@ -46,11 +47,20 @@ func NewAuthHandler(users repo.Users, refresh repo.RefreshTokens, secret string,
 	}
 }
 
+// LoginHandler godoc
+//
+//	@Summary		Login
+//	@Description	Exchange username/password for access & refresh tokens
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		models.LoginRequest	true	"credentials"
+//	@Success		200		{object}	models.TokenPairResponse
+//	@Failure		400		{object}	map[string]string
+//	@Failure		401		{object}	map[string]string
+//	@Router			/auth/login [post]
 func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
-	var in struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
+	var in models.LoginRequest
 	if err := c.BodyParser(&in); err != nil || in.Username == "" || in.Password == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid credentials payload")
 	}
@@ -98,11 +108,19 @@ func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
 	})
 }
 
+// RefreshHandler godoc
+//
+//	@Summary		Refresh access token
+//	@Description	Exchange a valid refresh token for a new access token (rotates refresh)
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body		body		models.RefreshRequest	true	"refresh payload"
+//	@Success		200			{object}	models.TokenPairResponse
+//	@Failure		400,401,500	{object}	map[string]string
+//	@Router			/auth/refresh [post]
 func (h *AuthHandler) RefreshHandler(c *fiber.Ctx) error {
-	var in struct {
-		UserID       string `json:"user_id"`
-		RefreshToken string `json:"refresh_token"`
-	}
+	var in models.RefreshRequest
 	if err := c.BodyParser(&in); err != nil || in.UserID == "" || in.RefreshToken == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid refresh payload")
 	}
@@ -175,6 +193,17 @@ func RequireAuth(secret string) fiber.Handler {
 	}
 }
 
+// LogoutHandler godoc
+//
+//	@Summary		Logout
+//	@Description	Revoke the provided refresh token for the authenticated user
+//	@Tags			auth
+//	@Security		BearerAuth
+//	@Accept			json
+//	@Param			body	body	models.LogoutRequest	true	"logout payload"
+//	@Success		204
+//	@Failure		400,401,500	{object}	map[string]string
+//	@Router			/auth/logout [post]
 func (h *AuthHandler) LogoutHandler(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(string)
 	if !ok || userID == "" {

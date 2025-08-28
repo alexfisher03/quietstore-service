@@ -7,6 +7,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type Pingable interface {
+	Ping(ctx context.Context) error
+}
+
 func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {

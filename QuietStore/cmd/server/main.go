@@ -1,14 +1,33 @@
+//	@title			QuietStore API
+//	@version		0.1
+//	@description	QuietStore file storage API: auth, users, files.
+//	@BasePath		/api/v1
+
+//	@contact.name	QuietStore Devs
+//	@contact.url	https://github.com/alexfisher03/quietstore-service
+//	@contact.email	you@example.com
+
+//	@securityDefinitions.apikey	BearerAuth
+//	@in							header
+//	@name						Authorization
+//	@description				Paste as: Bearer <ACCESS_JWT>
+
 package main
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
+
+	"github.com/gofiber/fiber/v2/middleware/helmet"
 
 	"github.com/alexfisher03/quietstore-service/QuietStore/internal/config"
 	"github.com/alexfisher03/quietstore-service/QuietStore/internal/db"
+	"github.com/alexfisher03/quietstore-service/QuietStore/internal/handlers"
 	"github.com/alexfisher03/quietstore-service/QuietStore/internal/repo"
 	"github.com/alexfisher03/quietstore-service/QuietStore/internal/service"
 	"github.com/gofiber/fiber/v2"
@@ -17,7 +36,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	v1 "github.com/alexfisher03/quietstore-service/QuietStore/api/v1"
+	fiberSwagger "github.com/gofiber/swagger"
 )
+
+//go:embed openapi.json
+var openapiSpec []byte
 
 func mustConnectDB(dsn string) *pgxpool.Pool {
 	deadline := time.Now().Add(30 * time.Second)
@@ -69,17 +92,47 @@ func main() {
 	ensureBucket(context.Background(), s3c, bucket)
 	storage := service.NewMinIOStorageService(s3c, bucket, filesRepo)
 
+	requireHTTPS := os.Getenv("REQUIRE_HTTPS") == "true"
+
 	app := fiber.New(fiber.Config{
-		ServerHeader: "QuietStore/1.0",
-		ReadTimeout:  cfg.Server.ReadTimeout,
-		WriteTimeout: cfg.Server.WriteTimeout,
-		BodyLimit:    cfg.Server.BodyLimit,
+		ServerHeader:            "QuietStore/1.0",
+		ReadTimeout:             cfg.Server.ReadTimeout,
+		WriteTimeout:            cfg.Server.WriteTimeout,
+		BodyLimit:               cfg.Server.BodyLimit,
+		EnableTrustedProxyCheck: true,
+		TrustedProxies:          []string{"0.0.0.0/0"},
 	})
 
+	app.Use(helmet.New())
+
+	if requireHTTPS {
+		app.Use(func(c *fiber.Ctx) error {
+			if c.Path() == "/api/v1/health" || strings.HasPrefix(c.Path(), "/docs/") || c.Path() == "/openapi.yaml" {
+				return c.Next()
+			}
+			if c.Protocol() == "https" || strings.EqualFold(c.Get("X-Forwarded-Proto"), "https") {
+				return c.Next()
+			}
+			return fiber.NewError(fiber.StatusUpgradeRequired, "TLS required")
+		})
+	}
+
+	app.Get("/api/v1/health", handlers.HealthCheck)
+	app.Get("/api/v1/ready", handlers.ReadyCheck(pool, s3c, bucket))
 	app.Use(logger.New())
 	app.Use(recover.New())
 
 	v1.RegisterRoutes(app, cfg.App, storage, usersRepo, refreshRepo)
+
+	app.Get("/openapi.json", func(c *fiber.Ctx) error {
+		c.Type("json")
+		return c.Send(openapiSpec)
+	})
+	if os.Getenv("ENABLE_SWAGGER") == "true" {
+		app.Get("/docs/*", fiberSwagger.New(fiberSwagger.Config{
+			URL: "/openapi.json",
+		}))
+	}
 
 	go func() {
 		ticker := time.NewTicker(6 * time.Hour)

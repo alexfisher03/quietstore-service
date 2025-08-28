@@ -1,0 +1,366 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QuietStore API",
+    "version": "0.1"
+  },
+  "servers": [
+    { "url": "/api/v1" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "tags": ["health"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "service": { "type": "string", "example": "QuietStore" },
+                    "status": { "type": "string", "example": "ok" },
+                    "timestamp": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "summary": "Readiness probe",
+        "description": "Checks database and S3/MinIO connectivity to determine if the service is ready to receive traffic.",
+        "tags": ["health"],
+        "responses": {
+          "200": {
+            "description": "Service is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ready" },
+                    "service": { "type": "string", "example": "QuietStore" }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Not ready (DB or S3 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string", "example": "db not ready" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Login",
+        "tags": ["auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tokens",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenPairResponse" } } }
+          },
+          "400": { "description": "Bad Request" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "summary": "Refresh access token",
+        "tags": ["auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "New tokens", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenPairResponse" } } } },
+          "400": { "description": "Bad Request" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Logout",
+        "tags": ["auth"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LogoutRequest" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "No Content" },
+          "400": { "description": "Bad Request" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "summary": "List users",
+        "tags": ["users"],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of users",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/User" } } } }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create user",
+        "tags": ["users"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "400": { "description": "Bad Request" },
+          "409": { "description": "Conflict" }
+        }
+      }
+    },
+    "/users/{id}": {
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "summary": "Get user by ID",
+        "tags": ["users"],
+        "responses": {
+          "200": { "description": "User", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "404": { "description": "Not Found" }
+        }
+      },
+      "patch": {
+        "summary": "Update user",
+        "tags": ["users"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserUpdateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "404": { "description": "Not Found" }
+        }
+      },
+      "delete": {
+        "summary": "Delete user",
+        "tags": ["users"],
+        "responses": {
+          "200": { "description": "Deleted", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "404": { "description": "Not Found" }
+        }
+      }
+    },
+    "/files": {
+      "get": {
+        "summary": "List my files",
+        "tags": ["files"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": {
+          "200": { "description": "List", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/FileMeta" } } } } },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "post": {
+        "summary": "Upload a file",
+        "tags": ["files"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": { "file": { "type": "string", "format": "binary" } },
+                "required": ["file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Uploaded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FileMeta" } } } }
+        }
+      }
+    },
+    "/files/{id}": {
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "summary": "Get file by ID",
+        "tags": ["files"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Metadata", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FileMeta" } } } },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not Found" }
+        }
+      },
+      "delete": {
+        "summary": "Delete file by ID",
+        "tags": ["files"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Deleted", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/files/search": {
+      "get": {
+        "summary": "Search files",
+        "tags": ["files"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "q", "in": "query", "schema": { "type": "string" }, "description": "Search substring for filename" },
+          { "name": "type", "in": "query", "schema": { "type": "string" }, "description": "MIME type filter" },
+          { "name": "min_size", "in": "query", "schema": { "type": "integer", "format": "int64" } },
+          { "name": "max_size", "in": "query", "schema": { "type": "integer", "format": "int64" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of matching files",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/FileMeta" }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    }
+  },
+  
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "username": { "type": "string", "example": "alice@example.com" },
+          "password": { "type": "string", "example": "s3cr3t" }
+        },
+        "required": ["username", "password"]
+      },
+      "TokenPairResponse": {
+        "type": "object",
+        "properties": {
+          "access_token": { "type": "string", "example": "<jwt>" },
+          "refresh_token": { "type": "string", "example": "<jwt>" },
+          "expires_at": { "type": "integer", "example": 1756069590 }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "string" },
+          "refresh_token": { "type": "string" }
+        },
+        "required": ["user_id", "refresh_token"]
+      },
+      "LogoutRequest": {
+        "type": "object",
+        "properties": {
+          "refresh_token": { "type": "string" }
+        },
+        "required": ["refresh_token"]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "username": { "type": "string" },
+          "email": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "UserCreateRequest": {
+        "type": "object",
+        "properties": {
+          "username": { "type": "string" },
+          "email": { "type": "string" },
+          "password": { "type": "string" }
+        },
+        "required": ["username", "password"]
+      },
+      "UserUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "username": { "type": "string" },
+          "email": { "type": "string" },
+          "password": { "type": "string" }
+        }
+      },
+      "FileMeta": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "file_123" },
+          "user_id": { "type": "string", "example": "User_65b80522-50be-4012-9964-550369cdcff7" },
+          "name": { "type": "string", "example": "report.pdf" },
+          "size": { "type": "integer", "format": "int64", "example": 102400 },
+          "content_type": { "type": "string", "example": "application/pdf" },
+          "created_at": { "type": "string", "format": "date-time", "example": "2025-08-26T05:53:20Z" }
+        }
+      }
+    }
+  }
+}

@@ -77,4 +77,6 @@ func RegisterRoutes(app *fiber.App, appCfg config.AppConfig, storage service.Sto
 	me.Get("/files/:fileID", fileHandlers.GetUserFileByIDHandler)
 	filesLimiter.Delete("/:fileID", fileHandlers.DeleteUserFileByIDHandler)
 	filesLimiter.Post("/upload", fileHandlers.UploadFileHandler)
+	// me.Get("/files/search", fileHandlers.SearchFilesHandler) @@@@@@@@@ v2 @@@@@@@@@
+	filesLimiter.Patch("/:fileID/rename", fileHandlers.RenameFileHandler)
 }

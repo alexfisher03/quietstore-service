@@ -11,4 +11,6 @@ type Files interface {
 	ByID(ctx context.Context, id string) (*models.File, error)
 	ListByOwner(ctx context.Context, ownerID string, limit, offset int) ([]*models.File, error)
 	Delete(ctx context.Context, id string, ownerID string) error
+	ListByFilters(ctx context.Context, userID string, q string, contentType string, minSize, maxSize int64, limit, offset int) ([]*models.File, error)
+	UpdateOriginalName(ctx context.Context, fileID, userID, newName string) error
 }

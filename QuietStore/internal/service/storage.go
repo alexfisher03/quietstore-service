@@ -12,4 +12,6 @@ type StorageService interface {
 	OpenFile(ctx context.Context, userID, fileID string) (*models.File, io.ReadCloser, error)
 	ListFiles(ctx context.Context, userID string, limit, offset int) ([]*models.File, error)
 	DeleteFile(ctx context.Context, userID, fileID string) error
+	SearchFiles(ctx context.Context, userID, q, contentType string, minSize, maxSize int64, limit, offset int) ([]*models.File, error)
+	RenameFile(ctx context.Context, userID, fileID, newName string) error
 }

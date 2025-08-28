@@ -45,6 +45,15 @@ services:
       - ./certs/minio/public.crt:/root/.minio/certs/public.crt:ro
       - ./certs/minio/private.key:/root/.minio/certs/private.key:ro
 
+  caddy:
+    image: caddy:2
+    ports: ["8443:443"]
+    volumes:
+      - ./certs/caddy:/data
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - goservice
+
 volumes:
   pg_data:
   minio_data:
