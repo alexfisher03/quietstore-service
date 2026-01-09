@@ -3,10 +3,6 @@
 //	@description	QuietStore file storage API: auth, users, files.
 //	@BasePath		/api/v1
 
-//	@contact.name	QuietStore Devs
-//	@contact.url	https://github.com/alexfisher03/quietstore-service
-//	@contact.email	you@example.com
-
 //	@securityDefinitions.apikey	BearerAuth
 //	@in							header
 //	@name						Authorization
