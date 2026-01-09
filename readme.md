@@ -1,8 +1,6 @@
 # QuietStore
 
-QuietStore is a self-hosted file storage service designed for learning modern backend architecture. It combines a Go (Fiber) API, PostgreSQL for metadata, MinIO for object storage, and Docker Compose for local orchestration. The project is intentionally structured to evolve toward Kubernetes-based deployment in the future, while remaining simple enough to run locally today.
-
-This README focuses on **local development and usage** on macOS and Windows.
+QuietStore is a self-hosted file storage service designed for learning modern backend architecture. It combines a Go (Fiber) API, PostgreSQL for metadata, MinIO for object storage, and Docker Compose for local orchestration. 
 
 ---
 
@@ -271,11 +269,11 @@ You can safely ignore HTTPS locally if you prefer.
 
 ---
 
-## Swagger / API Docs (Planned)
+## Swagger and MinIo
 
-Swagger support can be added using:
+Swagger is accessible when the compose is up at : http://127.0.0.1:8080/docs
 
-[https://github.com/gofiber/swagger](https://github.com/gofiber/swagger)
+MinIO is accessible when the compose is up at : http://127.0.0.1:9001
 
 This will expose:
 

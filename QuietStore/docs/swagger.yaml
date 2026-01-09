@@ -1,0 +1,295 @@
+basePath: /api/v1
+definitions:
+  models.FileMeta:
+    properties:
+      content_type:
+        example: application/pdf
+        type: string
+      created_at:
+        example: "2025-08-26T05:53:20Z"
+        type: string
+      id:
+        example: file_123
+        type: string
+      name:
+        example: report.pdf
+        type: string
+      size:
+        example: 102400
+        type: integer
+      user_id:
+        example: User_65b80522-50be-4012-9964-550369cdcff7
+        type: string
+    type: object
+  models.LoginRequest:
+    properties:
+      password:
+        example: s3cr3t
+        type: string
+      username:
+        example: alice@example.com
+        type: string
+    type: object
+  models.LogoutRequest:
+    properties:
+      refresh_token:
+        example: <jwt>
+        type: string
+    type: object
+  models.RefreshRequest:
+    properties:
+      refresh_token:
+        example: <jwt>
+        type: string
+      user_id:
+        example: User_65b80522-50be-4012-9964-550369cdcff7
+        type: string
+    type: object
+  models.TokenPairResponse:
+    properties:
+      access_token:
+        example: <jwt>
+        type: string
+      expires_at:
+        example: 1756069590
+        type: integer
+      refresh_token:
+        example: <jwt>
+        type: string
+    type: object
+info:
+  contact: {}
+  description: 'QuietStore file storage API: auth, users, files.'
+  title: QuietStore API
+  version: "0.1"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Exchange username/password for access & refresh tokens
+      parameters:
+      - description: credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TokenPairResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Login
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Revoke the provided refresh token for the authenticated user
+      parameters:
+      - description: logout payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.LogoutRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Logout
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Exchange a valid refresh token for a new access token (rotates
+        refresh)
+      parameters:
+      - description: refresh payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TokenPairResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Refresh access token
+      tags:
+      - auth
+  /files:
+    get:
+      description: Returns all files belonging to the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.FileMeta'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List my files
+      tags:
+      - files
+    post:
+      consumes:
+      - multipart/form-data
+      description: Uploads a file for the authenticated user
+      parameters:
+      - description: file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.FileMeta'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upload a file
+      tags:
+      - files
+  /files/{id}:
+    get:
+      description: Retrieves metadata for a specific file
+      parameters:
+      - description: File ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.FileMeta'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get file by ID
+      tags:
+      - files
+  /health:
+    get:
+      description: Liveness probe
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Health
+      tags:
+      - health
+securityDefinitions:
+  BearerAuth:
+    description: 'Paste as: Bearer <ACCESS_JWT>'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
