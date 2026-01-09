@@ -274,9 +274,3 @@ You can safely ignore HTTPS locally if you prefer.
 Swagger is accessible when the compose is up at : http://127.0.0.1:8080/docs
 
 MinIO is accessible when the compose is up at : http://127.0.0.1:9001
-
-This will expose:
-
-```
-GET /swagger/index.html
-```
